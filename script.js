@@ -51,19 +51,71 @@ document.getElementById("menu-button").innerHTML=`${(new Date()).toString().slic
 //this parameter is used for displaying the data in the horizontal slider according to day cauz api fetches data of all 7 days from now
 //i.e. 24*7=168 values hourly data
 function apiCall(date_from_today) {
+
+  //-------------------------------------------------------------------------------------------------//
+
+                          // CHART JS //
+                          let delayed;
+                          const labels = []; //X-AXIS
+                
+                          const data = {
+                            labels: labels,
+                            datasets: [{
+                              label: 'Temperature',
+                              data: [],
+                              fill: true,
+                              pointBackgroundColor: 'white',
+                              tension: 0.5
+                            }]
+                          };
+                                                
+                          const config = {
+                            type: 'line',
+                            data: data,//Y-AXIS
+                            options: {
+                              hitRadius: 30,
+                              hoverRadius: 12,
+                              responsive: true,
+                              animation: {
+                                onComplete: () => {
+                                  delayed = true;
+                                },
+                                delay: (context) => {
+                                  let delay = 0;
+                                  if(context.type==="data" && context.mode==="default" && !delayed) {
+                                    delay=context.dataIndex*100 + context.datasetIndex*100;
+                                  }
+                                  return delay;
+                                }
+                              },
+                              scales: {
+                                y: {
+                                  ticks: {
+                                    callback: function(value) {
+                                      return value+' \u00B0C';
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          };
+                        
+                        
+                        //------------------------------------------------------------------------------------------------//
+
   if(date_from_today===undefined) date_from_today=0;//by default consider today
   request.open('GET', URL+params, true);
   request.onload = function () {
     // Begin accessing JSON data here
-    var data = JSON.parse(this.response);
+    var data_api = JSON.parse(this.response);
 
     if (request.status >= 200 && request.status < 400) {
       // console.log(data);
       // logging(data);
 
       //current temp and weather
-      let cur_temp=data.current_weather.temperature;
-      let cur_temp_status=data.current_weather.weathercode;
+      let cur_temp=data_api.current_weather.temperature;
+      let cur_temp_status=data_api.current_weather.weathercode;
       let cur_temp_status_str="";
       weather_codes.forEach((value,index) => {
         if(index===cur_temp_status) {
@@ -75,9 +127,9 @@ function apiCall(date_from_today) {
       document.getElementById("cur_temp_status").innerHTML=cur_temp_status_str;
 
       //hourly temp and weather
-      let hourly_temp_status=data.hourly.weathercode;
-      let hourly_temp=data.hourly.temperature_2m;
-      let hourly_time=data.hourly.time;
+      let hourly_temp_status=data_api.hourly.weathercode;
+      let hourly_temp=data_api.hourly.temperature_2m;
+      let hourly_time=data_api.hourly.time;
       let html_str="";
       // hourly_temp.forEach((value,index) => {
         for(let index=24*(date_from_today);index<24*(date_from_today+1);index++) {  
@@ -86,8 +138,13 @@ function apiCall(date_from_today) {
           let set_hourly_time=hourly_time[index];
           let date=new Date(set_hourly_time);
           set_hourly_time=date.toLocaleString().slice(11);
+          //pushing in array for chart in x-axis
+          labels.push(date.toLocaleString().slice(11));
+
           // console.log(date);
           let set_hourly_temp=value;
+          //pushing in array for chart in y-axis
+          data.datasets[0].data.push(set_hourly_temp);
           
           let set_hourly_weather_code=hourly_temp_status[index];
           let hourly_temp_status_str="";
@@ -106,6 +163,20 @@ function apiCall(date_from_today) {
         }
       // });
 
+      //initialising chart
+      // console.log(labels);
+      // console.log(data);
+      const ctx=document.getElementById('weather-data');
+
+      let chartStatus = Chart.getChart("weather-data"); // <canvas> id
+      if (chartStatus != undefined) {
+        chartStatus.destroy();
+              //(or)
+      // chartStatus.clear();
+      }
+      //-- End of chart destroy   
+      const weather_chart=new Chart(ctx, config);
+
     } else {
       console.log('error');
     }
@@ -113,7 +184,9 @@ function apiCall(date_from_today) {
   request.send();
 }
 //IIFE=immediately invoked function expression
-(apiCall())();
+(function () {
+  apiCall();
+})();
 
 //logs data fetched in console just for testing api
 // function logging(data) {
